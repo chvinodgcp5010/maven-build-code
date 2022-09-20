@@ -1,5 +1,9 @@
 pipeline {
     agent any
+     tools {
+        maven 'mvn3'
+        // tools added in global tool configuration mention here otherwise it will not know where to pick maven
+    }
 
     stages{
         stage('fetch code') {
