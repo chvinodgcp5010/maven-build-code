@@ -12,7 +12,7 @@ pipeline {
     stages {  
         stage ('FETCH THE CODE'){
           steps {
-             git 'https://github.com/chvinodgcp5010/maven-build-code.git'
+             git branch: 'vp-docker', url: 'https://github.com/chvinodgcp5010/maven-build-code.git'
                     //Here if you donot have any idea how to add git to pipeline -> simply go to "pipeline job" -> Click on "pipeline sysntx" (bottom) and add git and url and generate script
            }
         }
