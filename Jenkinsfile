@@ -1,45 +1,76 @@
-//create a job "pipeline" and click on "pipeline" and use "pipelinescript" and paste above Jenkinsfile. 
-//If we use "pipeline script from scm" you should have "Jenkinsfile" on root folder of code repo.
-//If you update any tools on global tool configuration like maven and git ,you need update in Jenkins file like "tools" section below.
-//If not added any tools in global tools it will pick directly from default.
-//if we dont want to install manually or do we need to use different versions of tools for different jobs use global tool config and install automatically.
-
 pipeline {
-    agent any
-     tools {
-        maven 'mvn3'
-        // tools added in global tool configuration mention here otherwise it will not know where to pick maven
-    }
+    agent any 
+    environment {
+		 dockerhub_vnd_cred=credentials('Dockerhub-cred')  //Manage jenkins ->Manage credentials ->System ->Global credentials ->add credential ->username and pwd
+	         USE_GKE_GCLOUD_AUTH_PLUGIN = 'True'              //vinod501(dockerhub username)   //dockerhub pwd: **********   
+     
+	}
+    tools {
+        maven 'mvn3'                                                     }
 
-    stages{
-        stage('fetch code') {
-          steps{
-              git branch: 'vp-rem', url: "https://github.com/devopshydclub/vprofile-repo.git"
-          }  
+
+    stages {  
+        stage ('FETCH THE CODE'){
+          steps {
+             git 'https://github.com/chvinodgcp5010/maven-build-code.git'
+                    //Here if you donot have any idea how to add git to pipeline -> simply go to "pipeline job" -> Click on "pipeline sysntx" (bottom) and add git and url and generate script
+           }
         }
-
-        stage('Build') {
-            steps {
-                sh 'mvn clean install -DskipTests'
-            }
-            post {
-                success {
-                    echo "Now Archiving."
-                    archiveArtifacts artifacts: '**/*.war'
-                }
+	    
+        stage('BUILD AND PACKAGING TO DOCKER IMAGE') { 
+          steps {
+	      echo 'build'
+	      sh 'mvn clean install'
+	      sh 'docker build -t vinod501/app .'
             }
         }
-        stage('Test'){
-            steps {
-                sh 'mvn test'
+	    
+        stage('LOGIN TO DOCKERHUB AND PUSH IMAGE') {
+	      steps {
+		  sh 'echo $dockerhub_vnd_cred_PSW | docker login -u $dockerhub_vnd_cred_USR --password-stdin'
+		  sh 'docker push vinod501/app:latest'
+		}
+	     }
+	    
+       stage('PULL IMAGE FROM DOCKERHUB AND RUN DOCKER IMAGE') { 
+          steps {
+	         echo 'deploy'
+                 sh 'docker pull vinod501/app:latest'
+		 sh 'docker container run -d vinod501/app:latest'   
             }
-
+       }  
+	    
+       stage('CLEANUP LOCAL IMAGES') { 
+         steps {
+	      echo 'Deleting all local images'
+              sh 'docker image prune -af'
+              //https://github.com/fatihtepe/Jenkins-Pipeline-to-Push-Docker-Images-to-ECR/blob/main/Jenkinsfile
+              sh 'docker logout'
+		}
+	}
+	    
+       stage('DEPLOY APPLICATION to GKECLUSTER') {
+           steps{
+                sh 'export USE_GKE_GCLOUD_AUTH_PLUGIN=True'
+                sh 'gcloud container clusters get-credentials steallantis-gke --zone us-central1-c --project ferrous-depth-373006'
+                sh 'kubectl delete -f kubernetes/deployment/deployment.yaml || echo \"deployment not available\"'
+                sh 'kubectl create -f kubernetes/deployment/deployment.yaml'
+            }
         }
-         stage('Code Ananlysis'){
-            steps {
-                sh 'mvn checkstyle:checkstyle'
-            }
-
+}
+    post {
+        //https://github.com/chvinodgcp5010/jenkinsfile-tutorial/blob/master/part04-post-actions/post1.jenkins
+        always {
+            echo "This block always runs."
+        }
+        aborted {
+            echo "This block runs when the build process is aborted."
+        }
+        failure {
+            echo "This block runs when the build is failed."
+        }
+        success {
+            echo "This block runs when the build is succeeded."
         }
     }
 }
