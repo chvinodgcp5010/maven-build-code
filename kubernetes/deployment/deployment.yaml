@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+ name: hello
+ labels:
+  app: hello
+spec:
+ replicas: 1
+ selector:
+    matchLabels:
+      app: hello
+ strategy:
+  type: Recreate
+ template:
+  metadata:
+    labels:
+      app: hello
+      tier: hello
+  spec:
+    containers:
+    - name: hello
+      image: vinod501/app:latest
+      imagePullPolicy: Always
+      ports:
+      - containerPort: 8443
+        name: hello
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+ name: hello
+ labels:
+  app: hello
+spec:
+ ports:
+  - port: 80
+    targetPort: 8443
+ selector:
+  app: hello
+  tier: hello
+ type: LoadBalancer
+ 
+ 
+ 
